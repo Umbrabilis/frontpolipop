@@ -1,0 +1,157 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   REGISTER VALIDATION STYLES — añade esto al final de login.css
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Field wrapper ── */
+.reg-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* ── Input wrapper (icon + input + check) ── */
+.reg-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* ── Leading icon ── */
+.reg-icon {
+    position: absolute;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    color: #737373;
+    pointer-events: none;
+    z-index: 1;
+    transition: color 0.2s;
+}
+
+.reg-input-wrap:focus-within .reg-icon {
+    color: #a855f7;
+}
+
+/* ── Base input ── */
+.reg-input {
+    width: 100%;
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+    background: rgba(23, 23, 23, 0.5);
+    border: 1px solid rgba(64, 64, 64, 0.5);
+    border-radius: 0.75rem;
+    color: #fff;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.reg-input::placeholder { color: #737373; }
+
+.reg-input:focus {
+    border-color: rgba(147, 51, 234, 0.5);
+    background: rgba(23, 23, 23, 0.7);
+    box-shadow: 0 0 15px rgba(87, 35, 100, 0.2);
+}
+
+.reg-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Password extra padding for eye button */
+.reg-input--pw { padding-right: 2.75rem; }
+
+/* Select */
+.reg-select { cursor: pointer; padding-right: 2.5rem; }
+.reg-select option { background: #1a0a2e; color: #fff; }
+
+.reg-select-arrow {
+    position: absolute;
+    right: 10px;
+    color: #737373;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+}
+
+/* Eye button */
+.reg-eye {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #737373;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    transition: color 0.2s;
+    z-index: 2;
+}
+.reg-eye:hover { color: #a855f7; }
+
+/* ── Check mark ── */
+.reg-check {
+    position: absolute;
+    right: 10px;
+    color: #22c55e;
+    font-size: 0.85rem;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+/* ── Error message ── */
+.reg-error-msg {
+    font-size: 0.72rem;
+    color: #fca5a5;
+    padding-left: 2px;
+    animation: regErrPop 0.2s ease-out;
+}
+
+@keyframes regErrPop {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Field states ── */
+.reg-field--error .reg-input {
+    border-color: rgba(220, 38, 38, 0.6);
+    background: rgba(220, 38, 38, 0.05);
+}
+.reg-field--error .reg-input:focus {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+.reg-field--error .reg-icon { color: #f87171; }
+
+.reg-field--ok .reg-input {
+    border-color: rgba(34, 197, 94, 0.45);
+}
+.reg-field--ok .reg-icon { color: #22c55e; }
+
+/* ── Password strength ── */
+.reg-strength {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.reg-strength-bars {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+}
+
+.reg-strength-bar {
+    height: 3px;
+    flex: 1;
+    border-radius: 99px;
+    transition: background 0.3s ease;
+}
+
+.reg-strength-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: color 0.3s ease;
+}
