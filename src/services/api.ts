@@ -1,5 +1,5 @@
 // src/services/api.ts
-const API_URL = 'https://pelipopapi.onrender.com';
+const API_URL = 'http://localhost:5000';
 
 export interface LoginRequest {
   email: string;
