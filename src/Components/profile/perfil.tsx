@@ -20,7 +20,6 @@ interface ProfileFormState {
 
 interface FormErrors {
     username?: string;
-    email?: string;
     fullName?: string;
     phone?: string;
     birthdate?: string;
@@ -83,11 +82,6 @@ const IconUser = () => (
         <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
     </svg>
 );
-const IconMail = () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>
-    </svg>
-);
 const IconId = () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2"/><path d="M14 10h4M14 14h4"/>
@@ -146,12 +140,6 @@ const validateForm = (form: ProfileFormState): FormErrors => {
         errors.username = 'Máximo 30 caracteres.';
     } else if (!/^[a-zA-Z0-9_.-]+$/.test(form.username.trim())) {
         errors.username = 'Solo letras, números, puntos, guiones y guiones bajos.';
-    }
-
-    if (!form.email.trim()) {
-        errors.email = 'El correo es obligatorio.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-        errors.email = 'Ingresa un correo válido.';
     }
 
     if (!form.fullName.trim()) {
@@ -232,7 +220,6 @@ const Perfil: React.FC = () => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
         if (success) setSuccess('');
-        // Validate on change if already touched
         if (touched[name as keyof ProfileFormState]) {
             const newForm = { ...form, [name]: value };
             const errs = validateForm(newForm);
@@ -249,7 +236,6 @@ const Perfil: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
         e.preventDefault();
-        // Touch all fields
         const allTouched: Partial<Record<keyof ProfileFormState, boolean>> = {};
         (Object.keys(form) as Array<keyof ProfileFormState>).forEach(k => { allTouched[k] = true; });
         setTouched(allTouched);
@@ -260,13 +246,13 @@ const Perfil: React.FC = () => {
         setSaving(true); setError(''); setSuccess('');
         const selectedCountry = countries.find(c => String(c.id) === form.countryId);
         try {
-            const payload: UpdateUserProfileRequest = { email: form.email.trim(), username: form.username.trim(), fullName: form.fullName.trim(), role: currentUser.role, phone: form.phone.trim() || undefined, birthdate: form.birthdate || undefined, gender: form.gender || undefined, countryId: form.countryId ? Number(form.countryId) : undefined };
+            const payload: UpdateUserProfileRequest = { email: form.email, username: form.username.trim(), fullName: form.fullName.trim(), role: currentUser.role, phone: form.phone.trim() || undefined, birthdate: form.birthdate || undefined, gender: form.gender || undefined, countryId: form.countryId ? Number(form.countryId) : undefined };
             const updated = await apiService.updateUser(currentUser.id, payload);
             setCurrentUser(updated); setSuccess('¡Perfil actualizado correctamente!');
             const storedRaw = localStorage.getItem('user');
             let storedUser: Record<string, unknown> = {};
             if (storedRaw) { try { storedUser = JSON.parse(storedRaw) as Record<string, unknown>; } catch { storedUser = {}; } }
-            localStorage.setItem('user', JSON.stringify({ ...storedUser, id: updated.id ?? currentUser.id, email: updated.email ?? form.email.trim(), username: updated.username ?? form.username.trim(), role: updated.role ?? storedUser.role, gender: updated.gender ?? (form.gender || undefined), country: updated.country ?? selectedCountry?.name, countryId: updated.countryId ?? (form.countryId ? Number(form.countryId) : undefined), birthdate: updated.birthdate ?? (form.birthdate || undefined), fullName: updated.fullName ?? (form.fullName || undefined), phone: updated.phone ?? (form.phone || undefined) }));
+            localStorage.setItem('user', JSON.stringify({ ...storedUser, id: updated.id ?? currentUser.id, email: updated.email ?? form.email, username: updated.username ?? form.username.trim(), role: updated.role ?? storedUser.role, gender: updated.gender ?? (form.gender || undefined), country: updated.country ?? selectedCountry?.name, countryId: updated.countryId ?? (form.countryId ? Number(form.countryId) : undefined), birthdate: updated.birthdate ?? (form.birthdate || undefined), fullName: updated.fullName ?? (form.fullName || undefined), phone: updated.phone ?? (form.phone || undefined) }));
         } catch (saveError) {
             console.error(saveError);
             const detail = saveError instanceof Error ? saveError.message : '';
@@ -318,17 +304,12 @@ const Perfil: React.FC = () => {
 
                 <form className="profile-form" onSubmit={(e) => void handleSubmit(e)} noValidate>
 
-                    {/* Row 1: username + email */}
+                    {/* Row 1: username full width */}
                     <div className="profile-row">
-                        <div className={`profile-field ${fieldErrors.username && touched.username ? 'has-error' : ''}`}>
+                        <div className={`profile-field profile-field--full ${fieldErrors.username && touched.username ? 'has-error' : ''}`}>
                             <label htmlFor="username"><IconUser /> Nombre de usuario</label>
                             <input id="username" name="username" value={form.username} onChange={handleInputChange} onBlur={handleBlur} required disabled={saving} placeholder="ej. john_doe" autoComplete="username" />
                             {fieldErrors.username && touched.username && <span className="field-error">{fieldErrors.username}</span>}
-                        </div>
-                        <div className={`profile-field ${fieldErrors.email && touched.email ? 'has-error' : ''}`}>
-                            <label htmlFor="email"><IconMail /> Correo electrónico</label>
-                            <input id="email" type="email" name="email" value={form.email} onChange={handleInputChange} onBlur={handleBlur} required disabled={saving} placeholder="correo@ejemplo.com" autoComplete="email" />
-                            {fieldErrors.email && touched.email && <span className="field-error">{fieldErrors.email}</span>}
                         </div>
                     </div>
 
