@@ -158,16 +158,38 @@ const validateEditField = (field: keyof EditErrors, value: string): string => {
     }
 };
 
+// ── Gender helpers ─────────────────────────────────────────────────────────
+// Normaliza cualquier valor entrante al string completo que espera la API
+const toGenderApiValue = (raw: string): string => {
+    const k = (raw || '').trim().toUpperCase();
+    if (k === 'M' || k === 'MASCULINO' || k === 'MALE')   return 'MASCULINO';
+    if (k === 'F' || k === 'FEMENINO'  || k === 'FEMALE') return 'FEMENINO';
+    if (k === 'O' || k === 'OTRO'      || k === 'OTHER')  return 'OTRO';
+    return '';
+};
+
+// ── Current user id from localStorage ─────────────────────────────────────
+const getCurrentUserId = (): number | null => {
+    try {
+        const raw = localStorage.getItem('user');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as { id?: number | string };
+        const id = typeof parsed.id === 'number' ? parsed.id : Number(parsed.id);
+        return Number.isFinite(id) ? id : null;
+    } catch { return null; }
+};
+
 // ── Icons ──────────────────────────────────────────────────────────────────
-const IcoMail = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>;
-const IcoUser = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>;
-const IcoShield = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l7 4v5c0 4.5-3.1 8.7-7 10C8.1 19.7 5 15.5 5 11V6z"/></svg>;
+const IcoMail   = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>;
+const IcoUser   = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>;
 const IcoGender = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="11" r="4"/><path d="M17 3h4v4"/><path d="m21 3-4.9 4.9"/><path d="M12 15v7"/><path d="M9 19h6"/></svg>;
-const IcoCal = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+const IcoCal    = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 
 // ── Component ──────────────────────────────────────────────────────────────
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
+    const currentUserId = useMemo(() => getCurrentUserId(), []);
+
     const [users, setUsers] = useState<User[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(true);
     const [usersError, setUsersError] = useState('');
@@ -191,9 +213,18 @@ const AdminDashboard: React.FC = () => {
     const [editServerError, setEditServerError] = useState('');
 
     const openEdit = (u: User) => {
-        if(!u||typeof u.id!=='number') return;
+        if (!u || typeof u.id !== 'number') return;
+        // Bloquear edición del propio usuario
+        if (u.id === currentUserId) return;
         setEditingId(u.id);
-        setEditForm({ email:u.email||'', username:u.username||'', role:u.role||'USER', gender:u.gender||'', birthdate:u.birthdate||'' });
+        setEditForm({
+            email:     u.email     || '',
+            username:  u.username  || '',
+            role:      u.role      || 'USER',
+            // Normalizar género al valor completo que usa la API
+            gender:    toGenderApiValue(u.gender || ''),
+            birthdate: u.birthdate || '',
+        });
         setEditErrors({});
         setEditTouched({});
         setEditServerError('');
@@ -218,7 +249,6 @@ const AdminDashboard: React.FC = () => {
 
     const saveEdit = async () => {
         if(!editingId) return;
-        // Validate all edit fields
         const fields: Array<keyof EditErrors> = ['email','username','birthdate'];
         const allTouched: Partial<Record<keyof EditErrors,boolean>> = {};
         const allErrors: EditErrors = {};
@@ -234,8 +264,16 @@ const AdminDashboard: React.FC = () => {
         setEditLoading(true);
         setEditServerError('');
         try {
-            const payload: User = { id:editingId, email:(editForm.email||'').trim(), username:(editForm.username||'').trim(), role:editForm.role, gender:editForm.gender, birthdate:editForm.birthdate } as User;
-            const updated=await apiService.updateUser(editingId,payload);
+            const payload: User = {
+                id:        editingId,
+                email:     (editForm.email    || '').trim(),
+                username:  (editForm.username || '').trim(),
+                role:      editForm.role,
+                // El género ya está normalizado (MASCULINO / FEMENINO / OTRO / '')
+                gender:    editForm.gender || undefined,
+                birthdate: editForm.birthdate,
+            } as User;
+            const updated = await apiService.updateUser(editingId, payload);
             setUsers(prev=>prev.map(u=>(u.id===editingId?{...u,...updated}:u)));
             closeEdit();
         } catch(e:any){ setEditServerError(e?.message||'No se pudo guardar'); }
@@ -360,7 +398,6 @@ const AdminDashboard: React.FC = () => {
         );
     };
 
-    // Field helper for modal
     const ef = (field: keyof EditErrors) => ({ hasError: !!(editErrors[field]&&editTouched[field]), error: editTouched[field]?editErrors[field]:undefined });
 
     return (
@@ -420,27 +457,45 @@ const AdminDashboard: React.FC = () => {
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    {users.map(u=>(
-                                        <tr key={u.id??u.email}>
-                                            <td className="col-select"><input type="checkbox" aria-label={`Seleccionar ${u.email||u.username||u.id}`} checked={typeof u.id==='number'?selectedIds.has(u.id):false} onChange={()=>toggleSelect(u.id)} disabled={typeof u.id!=='number'}/></td>
-                                            <td>{u.id??'—'}</td>
-                                            <td>{u.username??'—'}</td>
-                                            <td>{u.email??'—'}</td>
-                                            <td><span className={`badge ${u.role==='ADMIN'?'badge-role-admin':'badge-role'}`}>{translateMetricLabel(u.role||'—')}</span></td>
-                                            <td><span className="badge">{translateMetricLabel(u.gender||'—')}</span></td>
-                                            <td>{(()=>{const a=computeAge(u.birthdate);return a!==undefined?a:'—';})()}</td>
-                                            <td>
-                                                <div className="table-actions">
-                                                    <button className="btn-icon" onClick={()=>openEdit(u)} title="Editar usuario" aria-label="Editar usuario">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm2 1.5h.88l9.9-9.9-.88-.88-9.9 9.9v.88ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"/></svg>
-                                                    </button>
-                                                    <button className="btn-danger" onClick={()=>deleteUserRow(u.id,u.email||u.username)} disabled={deletingId===u.id} title="Eliminar usuario" aria-label="Eliminar usuario">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v12a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9Zm1 2h4v1h-4V5Zm-1 4a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V10a1 1 0 0 1 1-1Zm6 0a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V10a1 1 0 0 1 1-1Z"/></svg>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {users.map(u=>{
+                                        const isSelf = typeof u.id === 'number' && u.id === currentUserId;
+                                        return (
+                                            <tr key={u.id??u.email} className={isSelf ? 'row-self' : ''}>
+                                                <td className="col-select"><input type="checkbox" aria-label={`Seleccionar ${u.email||u.username||u.id}`} checked={typeof u.id==='number'?selectedIds.has(u.id):false} onChange={()=>toggleSelect(u.id)} disabled={typeof u.id!=='number'||isSelf}/></td>
+                                                <td>{u.id??'—'}</td>
+                                                <td>
+                                                    {u.username??'—'}
+                                                    {isSelf && <span className="badge badge-self" style={{marginLeft:6}}>Tú</span>}
+                                                </td>
+                                                <td>{u.email??'—'}</td>
+                                                <td><span className={`badge ${u.role==='ADMIN'?'badge-role-admin':'badge-role'}`}>{translateMetricLabel(u.role||'—')}</span></td>
+                                                <td><span className="badge">{translateMetricLabel(u.gender||'—')}</span></td>
+                                                <td>{(()=>{const a=computeAge(u.birthdate);return a!==undefined?a:'—';})()}</td>
+                                                <td>
+                                                    <div className="table-actions">
+                                                        <button
+                                                            className="btn-icon"
+                                                            onClick={()=>openEdit(u)}
+                                                            disabled={isSelf}
+                                                            title={isSelf ? 'No puedes editar tu propio usuario' : 'Editar usuario'}
+                                                            aria-label="Editar usuario"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm2 1.5h.88l9.9-9.9-.88-.88-9.9 9.9v.88ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"/></svg>
+                                                        </button>
+                                                        <button
+                                                            className="btn-danger"
+                                                            onClick={()=>deleteUserRow(u.id,u.email||u.username)}
+                                                            disabled={deletingId===u.id||isSelf}
+                                                            title={isSelf ? 'No puedes eliminar tu propio usuario' : 'Eliminar usuario'}
+                                                            aria-label="Eliminar usuario"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v12a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9Zm1 2h4v1h-4V5Zm-1 4a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V10a1 1 0 0 1 1-1Zm6 0a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V10a1 1 0 0 1 1-1Z"/></svg>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                     </tbody>
                                 </table>
                                 {deleteError&&<div className="admin-error" style={{marginTop:'.5rem'}}>{deleteError}</div>}
@@ -471,23 +526,16 @@ const AdminDashboard: React.FC = () => {
                                 {ef('username').error&&<span className="modal-field-error">{ef('username').error}</span>}
                             </div>
 
-                            {/* Configuración */}
+                            {/* Configuración — rol eliminado, solo género y fecha */}
                             <div className="modal-section-label" style={{marginTop:'.25rem'}}>Configuración</div>
                             <div className="modal-grid">
-                                <div className="modal-form-row">
-                                    <label><IcoShield/> Rol</label>
-                                    <select value={editForm.role||'USER'} onChange={e=>onEditChange('role',e.target.value)} disabled={editLoading}>
-                                        <option value="USER">Usuario</option>
-                                        <option value="ADMIN">Admin</option>
-                                    </select>
-                                </div>
                                 <div className="modal-form-row">
                                     <label><IcoGender/> Género</label>
                                     <select value={editForm.gender||''} onChange={e=>onEditChange('gender',e.target.value)} disabled={editLoading}>
                                         <option value="">—</option>
-                                        <option value="M">Masculino</option>
-                                        <option value="F">Femenino</option>
-                                        <option value="O">Otro</option>
+                                        <option value="MASCULINO">Masculino</option>
+                                        <option value="FEMENINO">Femenino</option>
+                                        <option value="OTRO">Otro</option>
                                     </select>
                                 </div>
                                 <div className={`modal-form-row${ef('birthdate').hasError?' has-error':''}`}>
